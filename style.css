@@ -1,13 +1,13 @@
 body, html {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: #f4f4f4;
-    font-family: Arial, sans-serif;
-    text-align: center;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #f4f4f4;
+  font-family: Arial, sans-serif;
+  text-align: center;
   }
   
   .container {
@@ -19,56 +19,63 @@ body, html {
   
   .board {
     display: grid;
-    grid-template-columns: repeat(10, 1fr);  /* 10 columns */
-    grid-template-rows: repeat(10, 1fr);     /* 10 rows */
+    grid-template-columns: repeat(10, 50px);  /* 10 columns */
+    grid-template-rows: repeat(10, 50px);     /* 10 rows */
     width: 500px;  /* Ensure the board is a square */
     height: 500px;
     position: relative;
     border: 2px solid black;
+    /* z-index: 10; */
   }
   
   .square {
     border: 1px solid #000;  /* Outline for each square */
     width: 100%;             /* Make each square fill its grid cell */
     height: 100%;
+    display: flex;           /* Flexbox to center the content */
+    justify-content: center; /* Horizontally center */
+    align-items: center;     /* Vertically center */
+    position: relative;      /* Positioning context for players */
+
   }
   
   .player {
     width: 40px;
     height: 40px;
     position: absolute;
-    transition: top 0.5s ease, left 0.5s ease; /* Smooth movement */
+    background-size: contain;
+    background-repeat: no-repeat;
+    transition: all 0.5s ease; /* Smooth movement */
   }
   
   .player1 {
     background-image: url('assets/images/player1-icon.png');
-    background-size: contain;
-    background-repeat: no-repeat;
   }
   
-  .input-box {
-    margin-top: 20px;
+  .player2 { 
+    background-image: url('assets/images/player2-icon.png');
+   }
+  .player3 {
+    background-image: url('assets/images/player3-icon.png');
+  }
+  .player4 {
+    background-image: url('assets/images/player4-icon.png');
+   }
+  
+  .finished-items {
+    display: flex;
+    justify-content: left;
+    align-items: center;
+    background-color: lightgray;  /* Visible for debugging */
+    margin-bottom: 5px;
+    width: 100%;
+    height: 50px;
   }
   
-  input[type="text"] {
-    padding: 10px;
-    border: 2px solid #000;
-    border-radius: 5px;
-    width: 300px;
-    font-size: 16px;
-  }
-  
-  button {
-    padding: 10px 20px;
-    background-color: #008cba;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    margin-left: 10px;
-    cursor: pointer;
-  }
-  
-  button:hover {
-    background-color: #005f73;
+  .finished-items .player {
+    width: 40px;
+    height: 40px;
+    margin: 0 5px;  /* Space between items */
+    position: relative;  /* Ensure items are positioned relative */
   }
   
