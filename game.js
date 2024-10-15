@@ -16,6 +16,11 @@ function initBoard() {
         const { gridRow, gridCol } = getRealPosition(i);
         square.style.gridRow = gridRow;
         square.style.gridColumn = gridCol;
+
+        square.addEventListener('click', function() {
+            alert(`You clicked on cell number ${i}`);
+            console.log(`Square ${i} clicked`);
+        });
         
         board.appendChild(square);
     }
@@ -44,8 +49,6 @@ function getUrlParams() {
     const movements = mov ? mov.split(',').map(Number) : [];
     const outItems = out ? out.split(',').map(Number) : [];
 
-    console.log("Out items: ", outItems);  // Debugging
-
     return { initPositions, itemCounts, movements, outItems };
 }
 
@@ -72,12 +75,28 @@ Player.prototype.createItemDiv = function(position) {
 
 // Add the move function or other prototypes here
 Player.prototype.move = function(itemDiv, newPosition) {
-    const { gridRow, gridCol } = getRealPosition(newPosition);  // Get correct grid position
-    const playerSize = 40;     // Player size is 40px
-    const gridSize = 50;       // Each grid cell is 50px
-    const offset = (gridSize - playerSize) / 2;  // Center the player in the cell
-    itemDiv.style.top = `${(gridRow - 1) * squareSize + offset}px`;
-    itemDiv.style.left = `${(gridCol - 1) * squareSize + offset}px`;
+    const { gridRow, gridCol } = getRealPosition(newPosition);
+    const gridSize = 50;   // Grid cell size is 50x50
+    const playerWidth = 140;
+    const playerHeight = 250;
+
+    // Calculate scale to fit player within the grid, keeping 2px margin
+    const scaleFactor = Math.min(gridSize / playerWidth, (gridSize - 6) / playerHeight);
+    const scaledWidth = playerWidth * scaleFactor;
+    const scaledHeight = playerHeight * scaleFactor;
+
+    // Center player within the cell
+    const offsetX = (gridSize - scaledWidth) / 2;
+    const offsetY = (gridSize - scaledHeight) / 2;
+
+    // Move the player to the correct position
+    itemDiv.style.width = `${scaledWidth}px`;
+    itemDiv.style.height = `${scaledHeight}px`;
+    itemDiv.style.top = `${(gridRow - 1) * gridSize + offsetY}px`;
+    itemDiv.style.left = `${(gridCol - 1) * gridSize + offsetX}px`;
+
+    console.log(`Moved to gridRow: ${gridRow}, gridCol: ${gridCol}, Position: ${newPosition}`);
+    console.log(`Calculated top: ${itemDiv.style.top}, left: ${itemDiv.style.left}`);
 };
 
 Player.prototype.moveStepByStep = function(itemDiv, currentPosition, targetPosition, callback) {
@@ -93,9 +112,22 @@ Player.prototype.moveStepByStep = function(itemDiv, currentPosition, targetPosit
 
         const { gridRow, gridCol } = getRealPosition(currentPosition);
 
+        // Recalculate the offset to center the player
+        const gridSize = 50;
+        const playerWidth = 140;
+        const playerHeight = 250;
+        const scaleFactor = Math.min(gridSize / playerWidth, (gridSize - 6) / playerHeight);
+        const scaledWidth = playerWidth * scaleFactor;
+        const scaledHeight = playerHeight * scaleFactor;
+        const offsetX = (gridSize - scaledWidth) / 2;
+        const offsetY = (gridSize - scaledHeight) / 2;
+
+        // Apply movement and centering
         itemDiv.style.transition = "top 0.3s ease, left 0.3s ease";
-        itemDiv.style.top = `${(gridRow - 1) * squareSize}px`;
-        itemDiv.style.left = `${(gridCol - 1) * squareSize}px`;
+        itemDiv.style.width = `${scaledWidth}px`;
+        itemDiv.style.height = `${scaledHeight}px`;
+        itemDiv.style.top = `${(gridRow - 1) * gridSize + offsetY}px`;
+        itemDiv.style.left = `${(gridCol - 1) * gridSize + offsetX}px`;
         itemDiv.setAttribute('data-position', currentPosition);  // Update the player's position attribute
 
         // Delay to simulate step-by-step movement
@@ -109,10 +141,23 @@ Player.prototype.moveStepByStep = function(itemDiv, currentPosition, targetPosit
 Player.prototype.moveSmooth = function(itemDiv, targetPosition, callback) {
     const { gridRow, gridCol } = getRealPosition(targetPosition);
 
+
+    // Recalculate the offset to center the player
+    const gridSize = 50;
+    const playerWidth = 140;
+    const playerHeight = 250;
+    const scaleFactor = Math.min(gridSize / playerWidth, (gridSize - 6) / playerHeight);
+    const scaledWidth = playerWidth * scaleFactor;
+    const scaledHeight = playerHeight * scaleFactor;
+    const offsetX = (gridSize - scaledWidth) / 2;
+    const offsetY = (gridSize - scaledHeight) / 2;
+
     // Apply smooth CSS transitions for the movement
-    itemDiv.style.transition = "top 1.0s ease, left 1.0s ease";  // Smooth transition over 0.5 seconds
-    itemDiv.style.top = `${(gridRow - 1) * squareSize}px`;
-    itemDiv.style.left = `${(gridCol - 1) * squareSize}px`;
+    itemDiv.style.transition = "top 1.0s ease, left 1.0s ease";
+    itemDiv.style.width = `${scaledWidth}px`;
+    itemDiv.style.height = `${scaledHeight}px`;
+    itemDiv.style.top = `${(gridRow - 1) * gridSize + offsetY}px`;
+    itemDiv.style.left = `${(gridCol - 1) * gridSize + offsetX}px`;
     itemDiv.setAttribute('data-position', targetPosition);  // Update the position attribute
 
     // Call the callback once the smooth movement is complete

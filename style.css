@@ -36,12 +36,13 @@ body, html {
     justify-content: center; /* Horizontally center */
     align-items: center;     /* Vertically center */
     position: relative;      /* Positioning context for players */
-
+    z-index: 20; /* Ensure squares are clickable */
   }
   
   .player {
-    width: 40px;
-    height: 40px;
+
+    max-width: 100%;    /* Ensure the player width fits within the grid */
+    max-height: calc(100% - 6x);  /* 2px margin at top and bottom */
     position: absolute;
     background-size: contain;
     background-repeat: no-repeat;
@@ -75,7 +76,7 @@ body, html {
   .finished-items .player {
     width: 40px;
     height: 40px;
-    margin: 0 5px;  /* Space between items */
+    margin: 0 10px;  /* Space between items */
     position: relative;  /* Ensure items are positioned relative */
   }
   
