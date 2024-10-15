@@ -124,7 +124,6 @@ Player.prototype.moveSmooth = function(itemDiv, targetPosition, callback) {
 
 
 function createFirework(x, y) {
-    console.log("Creating firework at", x, y);
     const colors = ['#ff0', '#f0f', '#0ff', '#f00', '#0f0', '#00f'];
     for (let i = 0; i < 30; i++) {
       const firework = document.createElement('div');
@@ -176,7 +175,11 @@ function handleMovements(players, movements) {
           }
 
         const currentMove = movements[movementIndex];
-        const nextMove = movements[movementIndex + 1];
+        const nextMove = movements[movementIndex + 1] || currentMove;
+
+        console.log(`Processing move 2 ${movementIndex}: ${currentMove} to ${nextMove}`);
+
+
         const finalMove = movements[movementIndex + 2];
 
         console.log(`Processing move: ${currentMove} to ${nextMove}`);
@@ -192,12 +195,18 @@ function handleMovements(players, movements) {
                         if (finalMove && Math.abs(finalMove - nextMove) > 1) {
                             // Smooth movement for ladder/snake
                             player.moveSmooth(player.items[i], finalMove, () => {
-                                checkForWin(nextMove);
+                                if (nextMove === 100)  {
+                                    console.log("Processing final move to 100!");
+                                    checkForWin(nextMove);  // Trigger win condition for move 100
+                                }
                                 movementIndex += 2;
                                 moveNext();
                             });
                         } else {
-                            checkForWin(nextMove);
+                            if (nextMove === 100)  {
+                                console.log("Processing final move to 100!");
+                                checkForWin(nextMove);
+                            }
                             movementIndex++;
                             moveNext();
                         }
@@ -218,10 +227,19 @@ function handleMovements(players, movements) {
         moveNext();
     }, 500);
 }
+
 function updateFinishedItems(players, outItems) {
     const finishedContainer = document.getElementById('finished-items');
     finishedContainer.innerHTML = '';  // Clear the current finished items
 
+    const { movements } = getUrlParams();  // Get the movements array from the URL parameters
+    // Check the last number in the movements array
+    const lastMove = movements[movements.length - 1];  // Get the last movement
+    if (outItems.length === 0) {
+        console.log("No items out yet, but still checking for win condition.");
+    }
+
+    console.log("Last move: ", lastMove);  // This should log 100
     // Loop over the "out" items and add them to the finished section
     outItems.forEach(outPlayerId => {
         const player = players.find(p => p.id === outPlayerId);
@@ -230,11 +248,13 @@ function updateFinishedItems(players, outItems) {
             finishedItem.style.position = 'relative';  // Ensure relative positioning in new container
             finishedContainer.appendChild(finishedItem);  // Add it to the top section
             console.log("Moved item to finished-items:", finishedItem);  // Inspect the element
-            checkForWin(100);
 
+            // Only call checkForWin if the last move is 100
         }
-        
     });
+    if (lastMove === 100) {
+        checkForWin(lastMove);
+    }
 }
 
 function checkForWin(position) {
@@ -250,7 +270,6 @@ function checkForWin(position) {
             // Create multiple fireworks
             for (let i = 0; i < 5; i++) {
                 setTimeout(() => {
-                    console.log("Creating firework");
                     createFirework(x, y);
                 }, i * 200);
             }
