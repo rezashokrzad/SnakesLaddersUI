@@ -80,7 +80,7 @@ Player.prototype.move = function(itemDiv, newPosition) {
     itemDiv.style.left = `${(gridCol - 1) * squareSize + offset}px`;
 };
 
-Player.prototype.moveStepByStep = function(itemDiv, currentPosition, targetPosition, isLadderOrSnake, callback) {
+Player.prototype.moveStepByStep = function(itemDiv, currentPosition, targetPosition, callback) {
     const step = () => {
         if (currentPosition === targetPosition) {
             if (callback) {
@@ -93,6 +93,7 @@ Player.prototype.moveStepByStep = function(itemDiv, currentPosition, targetPosit
 
         const { gridRow, gridCol } = getRealPosition(currentPosition);
 
+        itemDiv.style.transition = "top 0.3s ease, left 0.3s ease";
         itemDiv.style.top = `${(gridRow - 1) * squareSize}px`;
         itemDiv.style.left = `${(gridCol - 1) * squareSize}px`;
         itemDiv.setAttribute('data-position', currentPosition);  // Update the player's position attribute
@@ -126,42 +127,46 @@ function handleMovements(players, movements) {
     let movementIndex = 0;
 
     function moveNext() {
-        if (movementIndex < movements.length - 1) {
-            const currentMove = movements[movementIndex];
-            const nextMove = movements[movementIndex + 1];
+        if (movementIndex >= movements.length - 1) return;
 
-            for (const player of players) {
-                for (let i = 0; i < player.items.length; i++) {
-                    const currentPosition = parseInt(player.items[i].getAttribute('data-position'));
+        const currentMove = movements[movementIndex];
+        const nextMove = movements[movementIndex + 1];
+        const finalMove = movements[movementIndex + 2];
 
-                    if (currentPosition === currentMove) {
-                        const isJump = Math.abs(nextMove - currentMove) > 1;
+        for (const player of players) {
+            for (let i = 0; i < player.items.length; i++) {
+                const currentPosition = parseInt(player.items[i].getAttribute('data-position'));
 
-                        if (!isJump) {
-                            player.moveStepByStep(player.items[i], currentMove, nextMove, false, () => {
-                                movementIndex++;
+                if (currentPosition === currentMove) {
+                    // Step-by-step movement
+                    player.moveStepByStep(player.items[i], currentMove, nextMove, () => {
+                        // Check if there's a ladder/snake jump
+                        if (finalMove && Math.abs(finalMove - nextMove) > 1) {
+                            // Smooth movement for ladder/snake
+                            player.moveSmooth(player.items[i], finalMove, () => {
+                                movementIndex += 2;
                                 moveNext();
                             });
                         } else {
-                            player.moveStepByStep(player.items[i], currentMove, nextMove, true, () => {
-                                player.moveSmooth(player.items[i], nextMove, () => {
-                                    movementIndex++;
-                                    moveNext();
-                                });
-                            });
+                            movementIndex++;
+                            moveNext();
                         }
-                        return;
-                    }
+                    });
+                    return;
                 }
             }
         }
+
+        // If no movement was made, move to the next set
+        movementIndex++;
+        moveNext();
     }
+
     // Start processing the movements after a short delay
     setTimeout(() => {
         moveNext();
     }, 500);
 }
-
 function updateFinishedItems(players, outItems) {
     const finishedContainer = document.getElementById('finished-items');
     finishedContainer.innerHTML = '';  // Clear the current finished items
