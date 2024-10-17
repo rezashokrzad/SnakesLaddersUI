@@ -26,6 +26,38 @@ function initBoard() {
     }
 }
 
+function initializeGame() {
+    const { initPositions, itemCounts, movements, outItems } = getUrlParams();
+
+    const players = [];
+    let currentInitIndex = 0;  // Tracks the current position being assigned
+
+    // Iterate over the number of items for each player as indicated by the clr parameter
+    for (let playerId = 0; playerId < itemCounts.length; playerId++) {
+        const itemCount = itemCounts[playerId];  // Number of items for this player
+        
+        // Create the player with the correct class (e.g., player1, player2, etc.)
+        const player = new Player(playerId + 1, `player${playerId + 1}`);
+
+        // Create and assign each item for the player
+        for (let j = 0; j < itemCount; j++) {
+            if (initPositions[currentInitIndex] !== undefined) {
+                player.createItemDiv(initPositions[currentInitIndex]);  // Set the item's initial position
+                currentInitIndex++;  // Move to the next position
+            }
+        }
+
+        players.push(player);  // Add the player to the list of players
+    }
+
+    // Apply the movement logic after all players and items are initialized
+    handleMovements(players, movements, initPositions);
+
+    // Handle displaying finished items
+    updateFinishedItems(players, outItems);
+}
+
+
 // Convert a board position to the corresponding grid row and column
 function getRealPosition(position) {
     const row = Math.ceil(position / boardSize);
@@ -130,6 +162,7 @@ Player.prototype.moveStepByStep = function(itemDiv, currentPosition, targetPosit
         itemDiv.style.left = `${(gridCol - 1) * gridSize + offsetX}px`;
         itemDiv.setAttribute('data-position', currentPosition);  // Update the player's position attribute
 
+        playStepSound();
         // Delay to simulate step-by-step movement
         setTimeout(() => step(), 500);  // 300ms delay for each step
     };
@@ -160,13 +193,181 @@ Player.prototype.moveSmooth = function(itemDiv, targetPosition, callback) {
     itemDiv.style.left = `${(gridCol - 1) * gridSize + offsetX}px`;
     itemDiv.setAttribute('data-position', targetPosition);  // Update the position attribute
 
+    // Play smooth movement sound
+    playSmoothSound();
+
     // Call the callback once the smooth movement is complete
     setTimeout(() => {
         if (callback) callback();  // Execute the callback after smooth movement completes
     }, 1000);  // Movement duration (500ms)
 };
 
+// Handle movements of the players' items with animation
+function handleMovements(players, movements) {
+    let movementIndex = 0;
+    const { initPositions } = getUrlParams(); 
+    
+    function moveNext() {
+        if (movementIndex >= movements.length - 1) {
+            console.log("All movements processed");
+            return;
+          }
 
+        const currentMove = movements[movementIndex];
+        const nextMove = movements[movementIndex + 1] || currentMove;
+        const finalMove = movements[movementIndex + 2] || nextMove;
+
+        console.log(`Processing move: ${currentMove} to ${nextMove}`);
+
+        for (const player of players) {
+            for (let i = 0; i < player.items.length; i++) {
+                const currentPosition = parseInt(player.items[i].getAttribute('data-position'));
+
+                if (currentPosition === currentMove) {
+                    // Step-by-step movement
+                    player.moveStepByStep(player.items[i], currentMove, nextMove, () => {
+                        // Check if there's a ladder/snake jump
+                        if (finalMove && Math.abs(finalMove - nextMove) > 1) {
+
+                            if (finalMove < nextMove) {
+                                playSnakeSound();  // Play snake sound when going down
+                            } else if (finalMove > nextMove) {
+                                playLadderSound();  // Play ladder sound when going up
+                            }
+
+                            // Smooth movement for ladder/snake
+                            player.moveSmooth(player.items[i], finalMove, () => {
+
+                                checkForCollisions(finalMove, initPositions);
+
+                                if (nextMove === 100)  {
+                                    console.log("Processing final move to 100! 1");
+                                    checkForWin(nextMove);  // Trigger win condition for move 100
+                                }
+                                movementIndex += 2;
+                                moveNext();
+                            });
+                        } else {
+
+                            checkForCollisions(nextMove, initPositions);
+
+                            if (nextMove === 100)  {
+                                console.log("Processing final move to 100! 2");
+                                checkForWin(nextMove);
+                            }
+                            movementIndex++;
+                            moveNext();
+                        }
+                    });
+                    return;
+                }
+            }
+        }
+
+        // If no movement was made, move to the next set
+        movementIndex++;
+        moveNext();
+    }
+
+    // Start processing the movements after a short delay
+    setTimeout(() => {
+        moveNext();
+    }, 500);
+}
+
+function checkForCollisions(finalMove, initPositions) {
+    console.log("Checking collisions with initPositions: ", initPositions);  // Add this for debugging
+
+    initPositions.forEach((initPosition, index) => {
+        if (finalMove === initPosition) {
+            console.log(`Collision detected: Item at position ${initPosition} should be removed`);
+
+            // Show the popup for the item that should be removed
+            showRemovalPopup(index + 1);  // Assuming index corresponds to item ID, you can adjust as needed
+        }
+    });
+}
+
+
+function showRemovalPopup(itemId) {
+    // Create the popup div
+    const popup = document.createElement('div');
+    popup.className = 'popup';
+    popup.textContent = `Item ${itemId} should be removed`;
+
+    // Style the popup (you can adjust these styles as needed)
+    popup.style.position = 'fixed';
+    popup.style.top = '50%';
+    popup.style.left = '50%';
+    popup.style.transform = 'translate(-50%, -50%)';
+    popup.style.padding = '20px';
+    popup.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    popup.style.color = 'white';
+    popup.style.fontSize = '20px';
+    popup.style.borderRadius = '10px';
+    popup.style.zIndex = '9999';
+
+    // Add the popup to the document
+    document.body.appendChild(popup);
+
+    // Remove the popup after 3 seconds
+    setTimeout(() => {
+        popup.remove();
+    }, 3000);
+}
+
+
+function updateFinishedItems(players, outItems) {
+    const finishedContainer = document.getElementById('finished-items');
+    finishedContainer.innerHTML = '';  // Clear the current finished items
+
+    const { movements } = getUrlParams();  // Get the movements array from the URL parameters
+    // Check the last number in the movements array
+    const lastMove = movements[movements.length - 1];  // Get the last movement
+    if (outItems.length === 0) {
+        console.log("No items out yet, but still checking for win condition.");
+    }
+
+    console.log("Last move: ", lastMove);  // This should log 100
+    // Loop over the "out" items and add them to the finished section
+    outItems.forEach(outPlayerId => {
+        const player = players.find(p => p.id === outPlayerId);
+        if (player && player.items.length > 0) {
+            const finishedItem = player.items.pop();  // Remove the item from the board
+            finishedItem.style.position = 'relative';  // Ensure relative positioning in new container
+            finishedContainer.appendChild(finishedItem);  // Add it to the top section
+            console.log("Moved item to finished-items:", finishedItem);  // Inspect the element
+
+            // Only call checkForWin if the last move is 100
+        }
+    });
+    if (lastMove === 100) {
+        checkForWin(lastMove);
+    }
+}
+
+function checkForWin(position) {
+    console.log("Checking for win, position:", position);
+    if (position === 100) {
+        const { gridRow, gridCol } = getRealPosition(100);
+        const x = (gridCol - 1) * squareSize + squareSize / 2;
+        const y = (gridRow - 1) * squareSize + squareSize / 2;
+        
+
+        // Delay a bit to allow the movement to complete
+        setTimeout(() => {
+            // Create multiple fireworks
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    createFirework(x, y);
+                }, i * 200);
+            }
+
+            showCelebrationMessage();
+            playVictorySound();
+        }, 4000);  // Adjust the timing for better synchronization
+    }
+}
 
 function createFirework(x, y) {
     const colors = ['#ff0', '#f0f', '#0ff', '#f00', '#0f0', '#00f'];
@@ -209,153 +410,70 @@ function showCelebrationMessage() {
     }, 3000);
   }
 
-// Handle movements of the players' items with animation
-function handleMovements(players, movements) {
-    let movementIndex = 0;
-
-    function moveNext() {
-        if (movementIndex >= movements.length - 1) {
-            console.log("All movements processed");
-            return;
-          }
-
-        const currentMove = movements[movementIndex];
-        const nextMove = movements[movementIndex + 1] || currentMove;
-
-        console.log(`Processing move 2 ${movementIndex}: ${currentMove} to ${nextMove}`);
 
 
-        const finalMove = movements[movementIndex + 2];
-
-        console.log(`Processing move: ${currentMove} to ${nextMove}`);
-
-        for (const player of players) {
-            for (let i = 0; i < player.items.length; i++) {
-                const currentPosition = parseInt(player.items[i].getAttribute('data-position'));
-
-                if (currentPosition === currentMove) {
-                    // Step-by-step movement
-                    player.moveStepByStep(player.items[i], currentMove, nextMove, () => {
-                        // Check if there's a ladder/snake jump
-                        if (finalMove && Math.abs(finalMove - nextMove) > 1) {
-                            // Smooth movement for ladder/snake
-                            player.moveSmooth(player.items[i], finalMove, () => {
-                                if (nextMove === 100)  {
-                                    console.log("Processing final move to 100!");
-                                    checkForWin(nextMove);  // Trigger win condition for move 100
-                                }
-                                movementIndex += 2;
-                                moveNext();
-                            });
-                        } else {
-                            if (nextMove === 100)  {
-                                console.log("Processing final move to 100!");
-                                checkForWin(nextMove);
-                            }
-                            movementIndex++;
-                            moveNext();
-                        }
-                    });
-                    return;
-                }
-            }
-        }
-
-        // If no movement was made, move to the next set
-        movementIndex++;
-        moveNext();
+// Function to play victory sound (only if the user has interacted)
+function playVictorySound() {
+    if (!userHasInteracted) {
+        console.error('Victory sound cannot be played, user has not interacted with the page.');
+        return;
     }
-
-
-    // Start processing the movements after a short delay
-    setTimeout(() => {
-        moveNext();
-    }, 500);
-}
-
-function updateFinishedItems(players, outItems) {
-    const finishedContainer = document.getElementById('finished-items');
-    finishedContainer.innerHTML = '';  // Clear the current finished items
-
-    const { movements } = getUrlParams();  // Get the movements array from the URL parameters
-    // Check the last number in the movements array
-    const lastMove = movements[movements.length - 1];  // Get the last movement
-    if (outItems.length === 0) {
-        console.log("No items out yet, but still checking for win condition.");
-    }
-
-    console.log("Last move: ", lastMove);  // This should log 100
-    // Loop over the "out" items and add them to the finished section
-    outItems.forEach(outPlayerId => {
-        const player = players.find(p => p.id === outPlayerId);
-        if (player && player.items.length > 0) {
-            const finishedItem = player.items.pop();  // Remove the item from the board
-            finishedItem.style.position = 'relative';  // Ensure relative positioning in new container
-            finishedContainer.appendChild(finishedItem);  // Add it to the top section
-            console.log("Moved item to finished-items:", finishedItem);  // Inspect the element
-
-            // Only call checkForWin if the last move is 100
-        }
+    
+    const victorySound = document.getElementById('victory-sound');
+    victorySound.play().catch(error => {
+        console.error("Failed to play victory sound", error);
     });
-    if (lastMove === 100) {
-        checkForWin(lastMove);
-    }
 }
 
-function checkForWin(position) {
-    console.log("Checking for win, position:", position);
-    if (position === 100) {
-        console.log("Win condition met!");
-        const { gridRow, gridCol } = getRealPosition(100);
-        const x = (gridCol - 1) * squareSize + squareSize / 2;
-        const y = (gridRow - 1) * squareSize + squareSize / 2;
-        
-        // Delay a bit to allow the movement to complete
-        setTimeout(() => {
-            // Create multiple fireworks
-            for (let i = 0; i < 5; i++) {
-                setTimeout(() => {
-                    createFirework(x, y);
-                }, i * 200);
-            }
 
-            showCelebrationMessage();
-        }, 4000);  // Adjust the timing for better synchronization
-    }
+function playStepSound() {
+    const stepSound = document.getElementById('step-sound');
+    stepSound.play().catch(error => {
+        console.error("Failed to play step sound", error);
+    });
 }
 
-function initializeGame() {
-    const { initPositions, itemCounts, movements, outItems } = getUrlParams();
-
-    const players = [];
-    let currentInitIndex = 0;  // Tracks the current position being assigned
-
-    // Iterate over the number of items for each player as indicated by the clr parameter
-    for (let playerId = 0; playerId < itemCounts.length; playerId++) {
-        const itemCount = itemCounts[playerId];  // Number of items for this player
-        
-        // Create the player with the correct class (e.g., player1, player2, etc.)
-        const player = new Player(playerId + 1, `player${playerId + 1}`);
-
-        // Create and assign each item for the player
-        for (let j = 0; j < itemCount; j++) {
-            if (initPositions[currentInitIndex] !== undefined) {
-                player.createItemDiv(initPositions[currentInitIndex]);  // Set the item's initial position
-                currentInitIndex++;  // Move to the next position
-            }
-        }
-
-        players.push(player);  // Add the player to the list of players
-    }
-
-    // Apply the movement logic after all players and items are initialized
-    handleMovements(players, movements);
-
-    // Handle displaying finished items
-    updateFinishedItems(players, outItems);
+function playSmoothSound() {
+    const smoothSound = document.getElementById('smooth-sound');
+    smoothSound.play().catch(error => {
+        console.error("Failed to play smooth movement sound", error);
+    });
 }
 
+function playSnakeSound() {
+    const snakeSound = document.getElementById('snake-sound');
+    snakeSound.play().catch(error => {
+        console.error("Failed to play snake sound", error);
+    });
+}
+
+function playLadderSound() {
+    const ladderSound = document.getElementById('ladder-sound');
+    ladderSound.play().catch(error => {
+        console.error("Failed to play ladder sound", error);
+    });
+}
+
+
+let userHasInteracted = false;
+
+function enableSoundOnInteraction() {
+    document.addEventListener('click', () => {
+        // userHasInteracted = true;
+        const victorySound = document.getElementById('victory-sound');
+        victorySound.play().then(() => {
+            victorySound.pause();  // Pause immediately after ensuring it's allowed to play
+            victorySound.currentTime = 0;  // Reset playback to the beginning
+        }).catch(error => {
+            console.error("Sound activation failed:", error);
+        });
+    }, { once: true });  // Only trigger this handler once, on the first click
+}
+
+
+  
 
 // Initialize the board and start the game
 initBoard();
 initializeGame();
+enableSoundOnInteraction();  // Call this on game initialization
