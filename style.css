@@ -2,12 +2,15 @@ body, html {
   margin: 0;
   padding: 0;
   height: 100%;
+  width: 100%;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   background-color: #f4f4f4;
   font-family: Arial, sans-serif;
   text-align: center;
+  overflow: hidden; /* Prevent scrollbars */
   }
   
   .container {
@@ -15,17 +18,24 @@ body, html {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    width: 100%;
+    height: 100vh;
   }
   
   .board {
     display: grid;
-    grid-template-columns: repeat(10, 50px);  /* 10 columns */
-    grid-template-rows: repeat(10, 50px);     /* 10 rows */
-    width: 500px;  /* Ensure the board is a square */
-    height: 500px;
+    grid-template-columns: repeat(10, 1fr);  /* 10 columns */
+    grid-template-rows: repeat(10, 1fr);     /* 10 rows */
+    width: 100vw;
+    height: 100vw;
+    max-width: 100vh;
+    max-height: 100vh;
+    aspect-ratio: 1 / 1;
+    background-image: url('assets/images/snakesladders\ 1.png');
+    background-size: cover;
+    background-position: center;
     position: relative;
     border: 2px solid black;
-    /* z-index: 10; */
   }
   
   .square {
@@ -35,20 +45,43 @@ body, html {
     display: flex;           /* Flexbox to center the content */
     justify-content: center; /* Horizontally center */
     align-items: center;     /* Vertically center */
-    position: relative;      /* Positioning context for players */
     z-index: 20; /* Ensure squares are clickable */
   }
   
   .player {
-
-    max-width: 100%;    /* Ensure the player width fits within the grid */
-    max-height: calc(100% - 6x);  /* 2px margin at top and bottom */
+    max-width: 80%;
+    max-height: 80%;
+    /* max-width: 100%;    
+    max-height: calc(100% - 6x);   */
     position: absolute;
     background-size: contain;
     background-repeat: no-repeat;
+    background-position: center;
     transition: all 0.5s ease; /* Smooth movement */
   }
   
+  .finished-items {
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: left;
+    align-items: center;
+    background-color: rgba(211, 211, 211, 0.8);
+    margin-bottom: 5px;
+    width: 100%;
+    /* height: 50px; */
+    /* padding: 10px; */
+    z-index: 30;
+  }
+
+  .finished-items .player {
+    width: 40px;
+    height: 40px;
+    margin: 0 10px;  /* Space between items */
+    position: relative;  /* Ensure items are positioned relative */
+  }
+
   .player1 {
     background-image: url('assets/images/player1-icon.png');
   }
@@ -63,22 +96,6 @@ body, html {
     background-image: url('assets/images/player4-icon.png');
    }
   
-  .finished-items {
-    display: flex;
-    justify-content: left;
-    align-items: center;
-    background-color: lightgray;  /* Visible for debugging */
-    margin-bottom: 5px;
-    width: 100%;
-    height: 50px;
-  }
-  
-  .finished-items .player {
-    width: 40px;
-    height: 40px;
-    margin: 0 10px;  /* Space between items */
-    position: relative;  /* Ensure items are positioned relative */
-  }
   
 /* for firework */
 @keyframes explode {
@@ -118,4 +135,21 @@ body, html {
   font-size: 48px;
   color: #FFD700;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+
+@media (orientation: portrait) {
+  .board {
+    width: 100vw;
+    height: 100vw;
+    aspect-ratio: 1 / 1;
+  }
+}
+
+@media (orientation: landscape) {
+  .board {
+    width: 100vh;
+    height: 100vh;
+    aspect-ratio: 1 / 1;
+  }
 }
