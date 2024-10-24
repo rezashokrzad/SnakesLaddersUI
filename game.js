@@ -17,18 +17,37 @@ function initBoard() {
         square.style.gridRow = gridRow;
         square.style.gridColumn = gridCol;
 
-        square.addEventListener('click', function() {
-            alert(`You clicked on cell number ${i}`);
-            console.log(`Square ${i} clicked`);
-        });
+        square.addEventListener('mousedown', handleClickOrTouch);
+        square.addEventListener('touchstart', handleClickOrTouch);
+        
+        function handleClickOrTouch(event) {
+            event.preventDefault();
+        
+            // Check if the square is marked as occupied
+            if (square.classList.contains('occupied')) {
+                alert(`You clicked on cell number ${i} occupied by player.`);
+                console.log(`Square ${i} clicked with player item present.`);
+            } else {
+                console.log(`Square ${i} clicked but no player item present.`);
+            }
+        }
+        
         
         board.appendChild(square);
     }
+    updateBoardSize();
+
 }
+
 
 function initializeGame() {
     const { initPositions, itemCounts, movements, outItems } = getUrlParams();
 
+    
+    // Remove existing player elements
+    const existingPlayers = document.querySelectorAll('.player');
+    existingPlayers.forEach(player => player.remove());
+    
     const players = [];
     let currentInitIndex = 0;  // Tracks the current position being assigned
 
@@ -55,8 +74,70 @@ function initializeGame() {
 
     // Handle displaying finished items
     updateFinishedItems(players, outItems);
+    updatePlayerSizes();
 }
 
+// Update this function to handle responsive sizing
+function updateBoardSize() {
+    const container = document.querySelector('.container');
+    const board = document.getElementById('board');
+    const finishedItems = document.getElementById('finished-items');
+
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    const finishedItemsHeight = finishedItems.offsetHeight;
+
+    const boardWidth = containerWidth;
+    const boardHeight = containerHeight - finishedItemsHeight;
+
+    board.style.width = `${boardWidth}px`;
+    board.style.height = `${boardHeight}px`;
+
+    // Update the cell size
+    const cellWidth = boardWidth / 10;
+    const cellHeight = boardHeight / 10;
+    document.documentElement.style.setProperty('--cell-width', `${cellWidth}px`);
+    document.documentElement.style.setProperty('--cell-height', `${cellHeight}px`);
+
+    // Update the size of each cell to ensure they are rectangular
+    const squares = board.querySelectorAll('.square');
+    squares.forEach(square => {
+        square.style.width = `${cellWidth}px`;
+        square.style.height = `${cellHeight}px`;
+    });
+
+    // Update player sizes and positions
+    updatePlayerSizes();
+}
+
+function updatePlayerSizes() {
+    const cellWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-width'));
+    const cellHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-height'));
+    const playerSize = Math.min(cellWidth, cellHeight) * 0.8; // 80% of the smaller dimension
+
+    const players = document.querySelectorAll('.player');
+    players.forEach(player => {
+        player.style.width = `${playerSize}px`;
+        player.style.height = `${playerSize}px`;
+        updatePlayerPosition(player);
+    });
+}
+
+function updatePlayerPosition(playerElement) {
+    const position = parseInt(playerElement.getAttribute('data-position'));
+    const { gridRow, gridCol } = getRealPosition(position);
+
+    const cellWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-width'));
+    const cellHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-height'));
+    const playerSize = Math.min(cellWidth, cellHeight) * 0.8;
+
+    const offsetX = (cellWidth - playerSize) / 2;
+    const offsetY = (cellHeight - playerSize) / 2;
+    
+    playerElement.style.top = `${(gridRow - 1) * cellHeight + offsetY}px`;
+    playerElement.style.left = `${(gridCol - 1) * cellWidth + offsetX}px`;
+    
+}
 
 // Convert a board position to the corresponding grid row and column
 function getRealPosition(position) {
@@ -99,6 +180,7 @@ Player.prototype.createItemDiv = function(position) {
     const itemDiv = document.createElement('div');
     itemDiv.classList.add('player', this.colorClass);  // Use player color class based on player number
     itemDiv.setAttribute('data-position', position);  // Track the position of each item
+    itemDiv.setAttribute('data-id', `${this.id}-${this.items.length}`); // Unique ID based on player and item count
 
     document.getElementById('board').appendChild(itemDiv);
     this.move(itemDiv, position);  // Move item to its initial position
@@ -107,28 +189,17 @@ Player.prototype.createItemDiv = function(position) {
 
 // Add the move function or other prototypes here
 Player.prototype.move = function(itemDiv, newPosition) {
-    const { gridRow, gridCol } = getRealPosition(newPosition);
-    const gridSize = 50;   // Grid cell size is 50x50
-    const playerWidth = 140;
-    const playerHeight = 250;
+    const oldPosition = itemDiv.getAttribute('data-position');
+    // Remove the player indicator from the old position square
+    if (oldPosition) {
+        document.getElementById(`square-${oldPosition}`).classList.remove('occupied');
+    }
+    itemDiv.setAttribute('data-position', newPosition);
+    document.getElementById(`square-${newPosition}`).classList.add('occupied');
+    itemDiv.style.zIndex = '20';
+    updatePlayerPosition(itemDiv);
 
-    // Calculate scale to fit player within the grid, keeping 2px margin
-    const scaleFactor = Math.min(gridSize / playerWidth, (gridSize - 6) / playerHeight);
-    const scaledWidth = playerWidth * scaleFactor;
-    const scaledHeight = playerHeight * scaleFactor;
-
-    // Center player within the cell
-    const offsetX = (gridSize - scaledWidth) / 2;
-    const offsetY = (gridSize - scaledHeight) / 2;
-
-    // Move the player to the correct position
-    itemDiv.style.width = `${scaledWidth}px`;
-    itemDiv.style.height = `${scaledHeight}px`;
-    itemDiv.style.top = `${(gridRow - 1) * gridSize + offsetY}px`;
-    itemDiv.style.left = `${(gridCol - 1) * gridSize + offsetX}px`;
-
-    console.log(`Moved to gridRow: ${gridRow}, gridCol: ${gridCol}, Position: ${newPosition}`);
-    console.log(`Calculated top: ${itemDiv.style.top}, left: ${itemDiv.style.left}`);
+    
 };
 
 Player.prototype.moveStepByStep = function(itemDiv, currentPosition, targetPosition, callback) {
@@ -136,30 +207,30 @@ Player.prototype.moveStepByStep = function(itemDiv, currentPosition, targetPosit
         if (currentPosition === targetPosition) {
             if (callback) {
                 setTimeout(callback, 300);  // Call the callback once the step-by-step movement completes
+                callback();
             }
             return;
         }
 
-        currentPosition += (currentPosition < targetPosition) ? 1 : -1;  // Increment or decrement position
-
+        currentPosition += currentPosition < targetPosition ? 1 : -1;
         const { gridRow, gridCol } = getRealPosition(currentPosition);
 
-        // Recalculate the offset to center the player
-        const gridSize = 50;
-        const playerWidth = 140;
-        const playerHeight = 250;
-        const scaleFactor = Math.min(gridSize / playerWidth, (gridSize - 6) / playerHeight);
-        const scaledWidth = playerWidth * scaleFactor;
-        const scaledHeight = playerHeight * scaleFactor;
-        const offsetX = (gridSize - scaledWidth) / 2;
-        const offsetY = (gridSize - scaledHeight) / 2;
+        // Get the current cell dimensions
+        const cellWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-width'));
+        const cellHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-height'));
+        const playerSize = Math.min(cellWidth, cellHeight) * 0.8; // Keep player size proportionate to cell size
 
-        // Apply movement and centering
+        // Center the player in the new cell
+        const offsetX = (cellWidth - playerSize) / 2;
+        const offsetY = (cellHeight - playerSize) / 2;
+
+        // Apply the new position and size
         itemDiv.style.transition = "top 0.3s ease, left 0.3s ease";
-        itemDiv.style.width = `${scaledWidth}px`;
-        itemDiv.style.height = `${scaledHeight}px`;
-        itemDiv.style.top = `${(gridRow - 1) * gridSize + offsetY}px`;
-        itemDiv.style.left = `${(gridCol - 1) * gridSize + offsetX}px`;
+        itemDiv.style.width = `${playerSize}px`;
+        itemDiv.style.height = `${playerSize}px`;
+        itemDiv.style.top = `${(gridRow - 1) * cellHeight + offsetY}px`;
+        itemDiv.style.left = `${(gridCol - 1) * cellWidth + offsetX}px`;
+
         itemDiv.setAttribute('data-position', currentPosition);  // Update the player's position attribute
 
         playStepSound();
@@ -174,24 +245,22 @@ Player.prototype.moveStepByStep = function(itemDiv, currentPosition, targetPosit
 Player.prototype.moveSmooth = function(itemDiv, targetPosition, callback) {
     const { gridRow, gridCol } = getRealPosition(targetPosition);
 
-
+    // Get the current cell dimensions to ensure consistency with responsive design
+    const cellWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-width'));
+    const cellHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-height'));
+    const playerSize = Math.min(cellWidth, cellHeight) * 0.8; // Keep player size proportionate to cell size
+    
     // Recalculate the offset to center the player
-    const gridSize = 50;
-    const playerWidth = 140;
-    const playerHeight = 250;
-    const scaleFactor = Math.min(gridSize / playerWidth, (gridSize - 6) / playerHeight);
-    const scaledWidth = playerWidth * scaleFactor;
-    const scaledHeight = playerHeight * scaleFactor;
-    const offsetX = (gridSize - scaledWidth) / 2;
-    const offsetY = (gridSize - scaledHeight) / 2;
+    const offsetX = (cellWidth - playerSize) / 2;
+    const offsetY = (cellHeight - playerSize) / 2;
 
     // Apply smooth CSS transitions for the movement
     itemDiv.style.transition = "top 1.0s ease, left 1.0s ease";
-    itemDiv.style.width = `${scaledWidth}px`;
-    itemDiv.style.height = `${scaledHeight}px`;
-    itemDiv.style.top = `${(gridRow - 1) * gridSize + offsetY}px`;
-    itemDiv.style.left = `${(gridCol - 1) * gridSize + offsetX}px`;
-    itemDiv.setAttribute('data-position', targetPosition);  // Update the position attribute
+    itemDiv.style.width = `${playerSize}px`;
+    itemDiv.style.height = `${playerSize}px`;
+    itemDiv.style.top = `${(gridRow - 1) * cellHeight + offsetY}px`;
+    itemDiv.style.left = `${(gridCol - 1) * cellWidth + offsetX}px`;
+    itemDiv.setAttribute('data-position', targetPosition); // Update the position attribute
 
     // Play smooth movement sound
     playSmoothSound();
@@ -227,6 +296,8 @@ function handleMovements(players, movements) {
                     // Step-by-step movement
                     player.moveStepByStep(player.items[i], currentMove, nextMove, () => {
                         // Check if there's a ladder/snake jump
+                        checkForCollisions(nextMove, initPositions, player.items[i]);
+
                         if (finalMove && Math.abs(finalMove - nextMove) > 1) {
 
                             if (finalMove < nextMove) {
@@ -238,7 +309,7 @@ function handleMovements(players, movements) {
                             // Smooth movement for ladder/snake
                             player.moveSmooth(player.items[i], finalMove, () => {
 
-                                checkForCollisions(finalMove, initPositions);
+                                checkForCollisions(finalMove, initPositions, player.items[i]);
 
                                 if (nextMove === 100)  {
                                     console.log("Processing final move to 100! 1");
@@ -275,18 +346,23 @@ function handleMovements(players, movements) {
     }, 500);
 }
 
-function checkForCollisions(finalMove, initPositions) {
-    console.log("Checking collisions with initPositions: ", initPositions);  // Add this for debugging
-
+function checkForCollisions(finalMove, initPositions, arrivingItem) {
     initPositions.forEach((initPosition, index) => {
         if (finalMove === initPosition) {
-            console.log(`Collision detected: Item at position ${initPosition} should be removed`);
-
-            // Show the popup for the item that should be removed
-            showRemovalPopup(index + 1);  // Assuming index corresponds to item ID, you can adjust as needed
+            // Find the item currently at this position excluding the arriving one
+            const existingItem = document.querySelector(
+                `.player[data-position="${initPosition}"]:not([data-id="${arrivingItem.getAttribute('data-id')}"])`
+            );
+            // If an existing item is found, remove it since the new item is taking its place
+            if (existingItem) {
+                existingItem.style.transition = 'opacity 1s';
+                existingItem.style.opacity = '0';
+                setTimeout(() => existingItem.remove(), 200); // Remove the old item from the board
+            }
         }
     });
 }
+
 
 
 function showRemovalPopup(itemId) {
@@ -470,10 +546,13 @@ function enableSoundOnInteraction() {
     }, { once: true });  // Only trigger this handler once, on the first click
 }
 
-
-  
+// Add event listener for window resize
+window.addEventListener('resize', () => {
+    updateBoardSize();
+});
 
 // Initialize the board and start the game
 initBoard();
 initializeGame();
 enableSoundOnInteraction();  // Call this on game initialization
+updateBoardSize();
